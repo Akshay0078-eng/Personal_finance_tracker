@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personal Finance Tracker - Test</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
+  h1 { text-align: center; }
+  form { margin-bottom: 20px; }
+  input, select { padding: 8px; margin: 5px 10px 5px 0; }
+  button { padding: 8px 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+  th { background: #f2f2f2; }
+  .summary { margin-top: 20px; }
+  canvas { max-width: 100%; height: 300px; }
+</style>
+</head>
+<body>
+
+<h1>Personal Finance Tracker - Test Mode</h1>
+
+<form id="transactionForm">
+  <select id="type" required>
+    <option value="">Select Type</option>
+    <option value="income">Income</option>
+    <option value="expense">Expense</option>
+  </select>
+  <input type="text" id="category" placeholder="Category" required />
+  <input type="number" id="amount" placeholder="Amount" step="0.01" required />
+  <input type="date" id="date" />
+  <button type="submit">Add</button>
+</form>
+
+<table id="transactionTable">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Type</th>
+      <th>Category</th>
+      <th>Amount</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div class="summary">
+  <h3>Monthly Summary</h3>
+  <p>Income: ₹<span id="income">0.00</span></p>
+  <p>Expense: ₹<span id="expense">0.00</span></p>
+  <p>Savings: ₹<span id="savings">0.00</span></p>
+</div>
+
+<canvas id="pieChart"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let transactions = [];
+  let editingId = null;
+
+  // Instead of fetching, initialize empty transactions and render
+  function fetchTransactions() {
+    renderTable();
+    renderSummary();
+    renderChart();
+  }
+
+  function renderTable() {
+    const tbody = document.querySelector('#transactionTable tbody');
+    tbody.innerHTML = '';
+    transactions.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${t.date || '-'}</td>
+        <td>${t.type}</td>
+        <td>${t.category}</td>
+        <td>₹${t.amount.toFixed(2)}</td>
+        <td>
+          <button onclick="editTransaction(${t.id})">Edit</button>
+          <button onclick="deleteTransaction(${t.id})">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderSummary() {
+    const income = transactions.filter(t => t.type === 'income').reduce((a, c) => a + c.amount, 0);
+    const expense = transactions.filter(t => t.type === 'expense').reduce((a, c) => a + c.amount, 0);
+    const savings = income - expense;
+
+    document.getElementById('income').innerText = income.toFixed(2);
+    document.getElementById('expense').innerText = expense.toFixed(2);
+    document.getElementById('savings').innerText = savings.toFixed(2);
+  }
+
+  function renderChart() {
+    const income = transactions.filter(t => t.type === 'income').reduce((a, c) => a + c.amount, 0);
+    const expense = transactions.filter(t => t.type === 'expense').reduce((a, c) => a + c.amount, 0);
+
+    const ctx = document.getElementById('pieChart').getContext('2d');
+    if(window.pie) window.pie.destroy();
+    window.pie = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: ['Income', 'Expense'],
+        datasets: [{
+          data: [income, expense],
+          backgroundColor: ['#4caf50', '#f44336']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  function addTransaction(data) {
+    if(editingId !== null) {
+      const index = transactions.findIndex(t => t.id === editingId);
+      if(index !== -1){
+        transactions[index] = { ...data, id: editingId };
+      }
+      editingId = null;
+      document.querySelector('form button').innerText = 'Add';
+    } else {
+      data.id = transactions.length ? transactions[transactions.length -1].id + 1 : 1;
+      transactions.push(data);
+    }
+    fetchTransactions();
+    clearForm();
+  }
+
+  function deleteTransaction(id) {
+    if(confirm('Delete this transaction?')) {
+      transactions = transactions.filter(t => t.id !== id);
+      fetchTransactions();
+    }
+  }
+
+  function editTransaction(id) {
+    const t = transactions.find(tx => tx.id === id);
+    if(t){
+      document.getElementById('type').value = t.type;
+      document.getElementById('category').value = t.category;
+      document.getElementById('amount').value = t.amount;
+      document.getElementById('date').value = t.date || '';
+      editingId = id;
+      document.querySelector('form button').innerText = 'Update';
+    }
+  }
+
+  function clearForm() {
+    document.getElementById('type').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('amount').value = '';
+    document.getElementById('date').value = '';
+  }
+
+  document.getElementById('transactionForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const data = {
+      type: document.getElementById('type').value,
+      category: document.getElementById('category').value.trim(),
+      amount: parseFloat(document.getElementById('amount').value),
+      date: document.getElementById('date').value || null
+    };
+    if (!data.type || !data.category || !data.amount) {
+      alert('Please fill all required fields');
+      return;
+    }
+    addTransaction(data);
+  });
+
+  fetchTransactions();
+</script>
+
+</body>
+</html>
